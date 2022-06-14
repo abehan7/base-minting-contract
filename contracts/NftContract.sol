@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
+import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
 /**
   @title minting website NFT contract opensource
@@ -24,7 +25,7 @@ contract NftContract is ERC721A, Ownable, ReentrancyGuard {
 
     string public baseURI;
     string public notRevealedUri =
-        "ipfs://QmYUuwLoiRb8woXwJCCsr1gvbr8E21KuxRtmVBmnH1tZz7/hidden.json";
+        "ipfs://QmcXG9QgbBocXuXHA3HukSDGF9aAEi88niNMspwvqRmaNp.json";
     string public baseExtension = ".json";
 
     bool public paused = false;
@@ -36,6 +37,9 @@ contract NftContract is ERC721A, Ownable, ReentrancyGuard {
     mapping(address => uint256) public _presaleClaimed;
 
     uint256 _price = 10**16; // 0.01 ETH
+
+    uint256 public presalePrice = 10**16;
+    uint256 public publicSalePrice;
 
     // uint256 _price = 10000000000000000; // 0.01 ETH
 
@@ -70,8 +74,52 @@ contract NftContract is ERC721A, Ownable, ReentrancyGuard {
         _;
     }
 
+    // function setBaseURI(string memory _tokenBaseURI) public onlyOwner {
+    //     baseURI = _tokenBaseURI;
+    // }
+
+    ////
+    modifier isValidMerkleProof(bytes32[] calldata _merkleProof) {
+        require(
+            MerkleProof.verify(
+                _merkleProof,
+                root,
+                keccak256(abi.encodePacked(msg.sender))
+            ) == true,
+            "Not allowed origin"
+        );
+        _;
+    }
+
+    function toggleReveal() public onlyOwner {
+        revealed = !revealed;
+    }
+
     function setBaseURI(string memory _tokenBaseURI) public onlyOwner {
         baseURI = _tokenBaseURI;
+    }
+
+    function setMaxMintAmountPerTx(uint256 _maxMintAmountPerTx)
+        public
+        onlyOwner
+    {
+        maxMintAmountPerTx = _maxMintAmountPerTx;
+    }
+
+    function setMaxSupply(uint256 _maxSupply) public onlyOwner {
+        maxSupply = _maxSupply;
+    }
+
+    function setPublicSalePrice(uint256 _cost) public onlyOwner {
+        publicSalePrice = _cost;
+    }
+
+    function setPresale(uint256 _cost) public onlyOwner {
+        presalePrice = _cost;
+    }
+
+    function setNotRevealedURI(string memory _notRevealedURI) public onlyOwner {
+        notRevealedUri = _notRevealedURI;
     }
 
     function _baseURI() internal view override returns (string memory) {
@@ -95,7 +143,34 @@ contract NftContract is ERC721A, Ownable, ReentrancyGuard {
     {
         require(publicM, "CryptoPunks: PublicSale is OFF");
         require(!paused, "CryptoPunks: Contract is paused");
+        _safeMint(msg.sender, _amount);
+    }
 
+    function presaleMint(
+        address account,
+        uint256 _amount,
+        bytes32[] calldata _proof
+    )
+        external
+        payable
+        isValidMerkleProof(_proof)
+        mintCompliance(_amount)
+        mintPriceCompliance(_amount, presalePrice)
+        onlyAccounts
+    {
+        require(msg.sender == account, "CryptoPunks: Not allowed");
+        require(presaleM, "CryptoPunks: Presale is OFF");
+        require(!paused, "CryptoPunks: Contract is paused");
+        require(
+            _amount <= presaleAmountLimit,
+            "CryptoPunks: You can't mint so much tokens"
+        );
+        require(
+            _presaleClaimed[msg.sender] + _amount <= presaleAmountLimit,
+            "CryptoPunks: You can't mint so much tokens"
+        );
+
+        _presaleClaimed[msg.sender] += _amount;
         _safeMint(msg.sender, _amount);
     }
 

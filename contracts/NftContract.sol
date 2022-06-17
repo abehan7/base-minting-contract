@@ -6,7 +6,6 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
-import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
 /**
   @title minting website NFT contract opensource
@@ -17,9 +16,6 @@ contract NftContract is ERC721A, Ownable, ReentrancyGuard {
     using Strings for uint256;
     using SafeMath for uint256;
 
-    bytes32 public root;
-
-    address proxyRegistryAddress;
     uint256 public maxMintAmountPerTx;
     uint256 public maxSupply = 100;
 
@@ -30,26 +26,15 @@ contract NftContract is ERC721A, Ownable, ReentrancyGuard {
 
     bool public paused = false;
     bool public revealed = false;
-    bool public presaleM = false;
     bool public publicM = false;
-
-    uint256 presaleAmountLimit = 3;
-    mapping(address => uint256) public _presaleClaimed;
 
     uint256 _price = 10**16; // 0.01 ETH
 
-    uint256 public presalePrice = 10**16;
-    uint256 public publicSalePrice;
-
-    // uint256 _price = 10000000000000000; // 0.01 ETH
-
-    constructor(bytes32 merkleroot, address _proxyRegistryAddress)
+    constructor()
         ERC721A("name BoredApe Yacht Club", "symbol BAYC")
         ReentrancyGuard()
     {
         maxSupply = 5000;
-        root = merkleroot;
-        proxyRegistryAddress = _proxyRegistryAddress;
     }
 
     modifier mintCompliance(uint256 _mintAmount) {
@@ -74,23 +59,6 @@ contract NftContract is ERC721A, Ownable, ReentrancyGuard {
         _;
     }
 
-    // function setBaseURI(string memory _tokenBaseURI) public onlyOwner {
-    //     baseURI = _tokenBaseURI;
-    // }
-
-    ////
-    modifier isValidMerkleProof(bytes32[] calldata _merkleProof) {
-        require(
-            MerkleProof.verify(
-                _merkleProof,
-                root,
-                keccak256(abi.encodePacked(msg.sender))
-            ) == true,
-            "Not allowed origin"
-        );
-        _;
-    }
-
     function toggleReveal() public onlyOwner {
         revealed = !revealed;
     }
@@ -111,11 +79,7 @@ contract NftContract is ERC721A, Ownable, ReentrancyGuard {
     }
 
     function setPublicSalePrice(uint256 _cost) public onlyOwner {
-        publicSalePrice = _cost;
-    }
-
-    function setPresale(uint256 _cost) public onlyOwner {
-        presalePrice = _cost;
+        _price = _cost;
     }
 
     function setNotRevealedURI(string memory _notRevealedURI) public onlyOwner {
@@ -143,34 +107,6 @@ contract NftContract is ERC721A, Ownable, ReentrancyGuard {
     {
         require(publicM, "CryptoPunks: PublicSale is OFF");
         require(!paused, "CryptoPunks: Contract is paused");
-        _safeMint(msg.sender, _amount);
-    }
-
-    function presaleMint(
-        address account,
-        uint256 _amount,
-        bytes32[] calldata _proof
-    )
-        external
-        payable
-        isValidMerkleProof(_proof)
-        mintCompliance(_amount)
-        mintPriceCompliance(_amount, presalePrice)
-        onlyAccounts
-    {
-        require(msg.sender == account, "CryptoPunks: Not allowed");
-        require(presaleM, "CryptoPunks: Presale is OFF");
-        require(!paused, "CryptoPunks: Contract is paused");
-        require(
-            _amount <= presaleAmountLimit,
-            "CryptoPunks: You can't mint so much tokens"
-        );
-        require(
-            _presaleClaimed[msg.sender] + _amount <= presaleAmountLimit,
-            "CryptoPunks: You can't mint so much tokens"
-        );
-
-        _presaleClaimed[msg.sender] += _amount;
         _safeMint(msg.sender, _amount);
     }
 
@@ -225,20 +161,4 @@ contract NftContract is ERC721A, Ownable, ReentrancyGuard {
         );
         require(success, "Transfer failed.");
     }
-}
-
-/**
-  @title An OpenSea delegate proxy contract which we include for whitelisting.
-  @author OpenSea
-*/
-contract OwnableDelegateProxy {
-
-}
-
-/**
-  @title An OpenSea proxy registry contract which we include for whitelisting.
-  @author OpenSea
-*/
-contract ProxyRegistry {
-    mapping(address => OwnableDelegateProxy) public proxies;
 }

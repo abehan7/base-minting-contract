@@ -14,8 +14,9 @@ async function main() {
   // await hre.run('compile');
 
   // We get the contract to deploy
-  const Greeter = await ethers.getContractFactory("Greeter");
-  const greeter = await Greeter.deploy("Hello, Hardhat!");
+  // const Greeter = await ethers.getContractFactory("Greeter");
+  const nftContract = await ethers.getContractFactory("NftContract");
+  const greeter = await nftContract.deploy("Hello, Hardhat!");
 
   await greeter.deployed();
 
